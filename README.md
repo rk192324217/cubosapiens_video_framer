@@ -6,7 +6,7 @@ A high-performance, premium web application for extracting frames from video fil
 
 - **Dual Extraction Engines**:
   - **Browser Engine**: Uses HTML5 Canvas for zero-latency extraction of small-to-medium videos.
-  - **FFmpeg Engine**: Uses a Node.js backend for heavy-duty processing of large videos.
+  - **FFmpeg Engine**: Uses a Node.js backend for heavy-duty processing of large videos using system processor.
 - **Drag & Drop UI**: Sleek, modern interface with glassmorphism and animated backgrounds.
 - **Real-time Progress**: Visual feedback via SSE (Server-Sent Events) for backend processing.
 - **Frame Gallery**: Responsive grid with full-size previews and individual downloads.
