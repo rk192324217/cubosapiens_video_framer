@@ -10,7 +10,6 @@ import { Zap, Download, RefreshCcw, Image, Loader, Sliders, Cpu } from 'lucide-r
 import JSZip from 'jszip';
 import { APP_STATE } from '../App';
 import { extractFramesCanvas } from '../utils/canvasExtractor';
-import { extractFramesBackend } from '../utils/backendExtractor';
 import { makeGif } from '../utils/gifMaker';
 
 const FPS_OPTIONS = [
@@ -36,61 +35,37 @@ const FILTERS = [
 
 export default function ExtractControls({
   videoFile, videoUrl, appState, setAppState,
-  setFrames, setProgress, setStatusMsg,
-  setSessionId, useBackend, onReset,
+  frames, setFrames, setProgress, setStatusMsg,
+  onReset,
 }) {
   const [fps,           setFps]           = useState(1);
   const [activeFilter,  setActiveFilter]  = useState(null);
   const [gifLoading,    setGifLoading]    = useState(false);
   const [zipLoading,    setZipLoading]    = useState(false);
 
-  const extractingRef = useRef(false);
-  const framesRef     = useRef([]);
-
   const isExtracting = appState === APP_STATE.EXTRACTING;
-  const isDone       = appState === APP_STATE.DONE;
 
   // ── Start extraction ────────────────────────────────────────────────────
   const handleExtract = useCallback(async () => {
     if (!videoUrl && !videoFile) return;
-    extractingRef.current = true;
     setFrames([]);
     setProgress(0);
-    framesRef.current = [];
     setAppState(APP_STATE.EXTRACTING);
 
     try {
-      let extractedFrames;
+      const videoEl = document.getElementById('video-player');
+      if (!videoEl) throw new Error('Video element not found.');
+      
+      const extractedFrames = await extractFramesCanvas({
+        videoEl,
+        fps,
+        filter: activeFilter ? FILTERS.find(f => f.id === activeFilter) : null,
+        onProgress: (p, msg) => {
+          setProgress(p);
+          if (msg) setStatusMsg(msg);
+        },
+      });
 
-      if (useBackend) {
-        // ── Backend path (FFmpeg) ─────────────────────────────────────────
-        setStatusMsg('Uploading video to server…');
-        extractedFrames = await extractFramesBackend({
-          videoFile,
-          fps,
-          filter: activeFilter ? FILTERS.find(f => f.id === activeFilter) : null,
-          onProgress: (p, msg) => {
-            setProgress(p);
-            if (msg) setStatusMsg(msg);
-          },
-          onSessionId: (id) => setSessionId(id),
-        });
-      } else {
-        // ── Canvas path (browser) ─────────────────────────────────────────
-        const videoEl = document.getElementById('video-player');
-        if (!videoEl) throw new Error('Video element not found.');
-        extractedFrames = await extractFramesCanvas({
-          videoEl,
-          fps,
-          filter: activeFilter ? FILTERS.find(f => f.id === activeFilter) : null,
-          onProgress: (p, msg) => {
-            setProgress(p);
-            if (msg) setStatusMsg(msg);
-          },
-        });
-      }
-
-      framesRef.current = extractedFrames;
       setFrames(extractedFrames);
       setProgress(100);
       setStatusMsg(`✓ ${extractedFrames.length} frames extracted`);
@@ -102,14 +77,11 @@ export default function ExtractControls({
       setAppState(APP_STATE.VIDEO_READY);
       setProgress(0);
       setStatusMsg('');
-    } finally {
-      extractingRef.current = false;
     }
-  }, [videoUrl, videoFile, fps, useBackend, activeFilter, setAppState, setFrames, setProgress, setSessionId, setStatusMsg]);
+  }, [videoUrl, videoFile, fps, activeFilter, setAppState, setFrames, setProgress, setStatusMsg]);
 
   // ── Download ZIP ────────────────────────────────────────────────────────
   const handleDownloadZip = useCallback(async () => {
-    const frames = framesRef.current;
     if (!frames.length) return;
     setZipLoading(true);
 
@@ -137,11 +109,10 @@ export default function ExtractControls({
     } finally {
       setZipLoading(false);
     }
-  }, []);
+  }, [frames]);
 
   // ── Export GIF ──────────────────────────────────────────────────────────
   const handleExportGif = useCallback(async () => {
-    const frames = framesRef.current;
     if (!frames.length) return;
     setGifLoading(true);
     toast('Creating GIF… this may take a moment', { icon: '🎞️' });
@@ -154,7 +125,7 @@ export default function ExtractControls({
     } finally {
       setGifLoading(false);
     }
-  }, [fps]);
+  }, [frames, fps]);
 
   return (
     <div className="glass-card p-5 space-y-5 sticky top-4">
@@ -239,25 +210,6 @@ export default function ExtractControls({
         </div>
       </div>
 
-      {/* Backend indicator */}
-      {useBackend && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.6rem 0.875rem',
-            borderRadius: '0.625rem',
-            background: 'rgba(139,92,246,0.08)',
-            border: '1px solid rgba(139,92,246,0.2)',
-          }}
-        >
-          <Cpu size={13} style={{ color: '#8b5cf6' }} />
-          <span style={{ fontSize: '0.72rem', color: 'rgba(167,139,250,0.8)' }}>
-            Using FFmpeg backend — supports large videos
-          </span>
-        </div>
-      )}
 
       {/* Extract button */}
       <button
@@ -275,18 +227,18 @@ export default function ExtractControls({
       </button>
 
       {/* Download buttons */}
-      {isDone && (
+      {frames.length > 0 && (
         <div className="space-y-2 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <button
             id="download-zip-btn"
             className="btn-glow w-full py-2.5 flex items-center justify-center gap-2"
             onClick={handleDownloadZip}
-            disabled={zipLoading}
+            disabled={zipLoading || isExtracting}
             style={{ fontSize: '0.875rem' }}
           >
             {zipLoading
               ? <><div className="spinner" /> Building ZIP…</>
-              : <><Download size={15} /> Download ZIP</>
+              : <><Download size={15} /> Download ZIP ({frames.length})</>
             }
           </button>
 
@@ -294,7 +246,7 @@ export default function ExtractControls({
             id="export-gif-btn"
             className="btn-outline w-full py-2.5 flex items-center justify-center gap-2"
             onClick={handleExportGif}
-            disabled={gifLoading}
+            disabled={gifLoading || isExtracting}
             style={{ fontSize: '0.875rem' }}
           >
             {gifLoading

@@ -5,7 +5,7 @@
 import { Cpu } from 'lucide-react';
 import logo from '../assets/logo.png';
 
-export default function Header({ useBackend, setUseBackend }) {
+export default function Header() {
   return (
     <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       {/* Logo */}
@@ -39,19 +39,10 @@ export default function Header({ useBackend, setUseBackend }) {
         </div>
       </div>
 
-      {/* Backend toggle */}
-      <div className="glass-card flex items-center gap-3 px-4 py-2.5">
-        <Cpu size={15} style={{ color: useBackend ? '#8b5cf6' : 'rgba(226,232,240,0.4)' }} />
-        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.75)', userSelect: 'none' }}>
-          FFmpeg backend
+      <div className="hidden sm:block">
+        <span className="glass-card px-4 py-2 text-[0.7rem] uppercase tracking-wider text-violet-400 border-violet-500/20">
+          Client-Side Only
         </span>
-        <button
-          role="switch"
-          aria-checked={useBackend}
-          onClick={() => setUseBackend(v => !v)}
-          className={`toggle ${useBackend ? 'on' : ''}`}
-          title={useBackend ? 'Using Node.js + FFmpeg backend' : 'Using browser canvas (no backend needed)'}
-        />
       </div>
     </header>
   );
