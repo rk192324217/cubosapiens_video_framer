@@ -27,11 +27,9 @@ export default function App() {
   const [appState,   setAppState]   = useState(APP_STATE.IDLE);
   const [videoFile,  setVideoFile]  = useState(null);       // File object
   const [videoUrl,   setVideoUrl]   = useState(null);       // ObjectURL
-  const [frames,     setFrames]     = useState([]);         // [{url, name, filtered?}]
+  const [frames,     setFrames]     = useState([]);         // [{url, name, id}]
   const [progress,   setProgress]   = useState(0);          // 0-100
   const [statusMsg,  setStatusMsg]  = useState('');
-  const [sessionId,  setSessionId]  = useState(null);       // backend session
-  const [useBackend, setUseBackend] = useState(false);      // toggle backend vs canvas
 
   // ── Handle video drop/select ────────────────────────────────────────────
   const handleVideoSelected = useCallback((file) => {
@@ -47,7 +45,6 @@ export default function App() {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setFrames([]);
     setProgress(0);
-    setSessionId(null);
     setStatusMsg('');
 
     const url = URL.createObjectURL(file);
@@ -64,7 +61,6 @@ export default function App() {
     setVideoUrl(null);
     setFrames([]);
     setProgress(0);
-    setSessionId(null);
     setStatusMsg('');
     setAppState(APP_STATE.IDLE);
   }, [videoUrl]);
@@ -74,7 +70,7 @@ export default function App() {
       <BackgroundOrbs />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-6">
-        <Header useBackend={useBackend} setUseBackend={setUseBackend} />
+        <Header />
 
         <main className="mt-8 space-y-6">
           {/* Step 1: Video upload */}
@@ -87,7 +83,11 @@ export default function App() {
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
               {/* Left: video + gallery */}
               <div className="space-y-6">
-                <VideoPlayer videoUrl={videoUrl} videoFile={videoFile} />
+                <VideoPlayer 
+                  videoUrl={videoUrl} 
+                  videoFile={videoFile} 
+                  onFrameCaptured={(frame) => setFrames(prev => [frame, ...prev])}
+                />
 
                 {appState === APP_STATE.EXTRACTING && (
                   <ProgressPanel progress={progress} statusMsg={statusMsg} />
@@ -97,8 +97,6 @@ export default function App() {
                   <FrameGallery
                     frames={frames}
                     setFrames={setFrames}
-                    sessionId={sessionId}
-                    useBackend={useBackend}
                   />
                 )}
               </div>
@@ -110,11 +108,10 @@ export default function App() {
                   videoUrl={videoUrl}
                   appState={appState}
                   setAppState={setAppState}
+                  frames={frames}
                   setFrames={setFrames}
                   setProgress={setProgress}
                   setStatusMsg={setStatusMsg}
-                  setSessionId={setSessionId}
-                  useBackend={useBackend}
                   onReset={handleReset}
                 />
               </div>

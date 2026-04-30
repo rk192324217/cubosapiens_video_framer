@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import '@tensorflow/tfjs';
 
-export default function FrameGallery({ frames, setFrames, sessionId, useBackend }) {
+export default function FrameGallery({ frames, setFrames }) {
   const [selectedFrame, setSelectedFrame] = useState(null);
   const [detecting, setDetecting] = useState(false);
 
@@ -46,7 +46,13 @@ export default function FrameGallery({ frames, setFrames, sessionId, useBackend 
       const predictions = await model.detect(img);
       
       const newFrames = [...frames];
-      newFrames[index] = { ...frame, detections: predictions };
+      // Store dimensions too so we can calculate relative positions
+      newFrames[index] = { 
+        ...frame, 
+        detections: predictions,
+        origW: img.width,
+        origH: img.height
+      };
       setFrames(newFrames);
       
       if (predictions.length > 0) {
@@ -72,24 +78,35 @@ export default function FrameGallery({ frames, setFrames, sessionId, useBackend 
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {frames.map((frame, i) => (
-          <div key={frame.id || i} className="frame-thumb group">
-            <img src={frame.url} alt={`Frame ${i}`} />
+          <div key={frame.id || i} className="frame-thumb group relative">
+            <img src={frame.url} alt={`Frame ${i}`} className="w-full h-full object-cover" />
             
             {/* Object Detection Overlays */}
-            {frame.detections?.map((det, di) => (
-              <div 
-                key={di}
-                className="detection-badge"
-                style={{
-                  left: `${(det.bbox[0] / 100) * 100}%`,
-                  top: `${(det.bbox[1] / 100) * 100}%`,
-                  width: `${(det.bbox[2] / 100) * 100}%`,
-                  height: `${(det.bbox[3] / 100) * 100}%`,
-                }}
-              >
-                <span className="detection-label">{det.class} {Math.round(det.score * 100)}%</span>
-              </div>
-            ))}
+            {frame.detections?.map((det, di) => {
+              const x = (det.bbox[0] / frame.origW) * 100;
+              const y = (det.bbox[1] / frame.origH) * 100;
+              const w = (det.bbox[2] / frame.origW) * 100;
+              const h = (det.bbox[3] / frame.origH) * 100;
+              
+              return (
+                <div 
+                  key={di}
+                  className="detection-badge"
+                  style={{
+                    left: `${x}%`,
+                    top: `${y}%`,
+                    width: `${w}%`,
+                    height: `${h}%`,
+                    borderWidth: '1px',
+                    borderColor: '#22d3ee'
+                  }}
+                >
+                  <span className="detection-label" style={{ fontSize: '0.5rem', top: '-0.8rem' }}>
+                    {det.class}
+                  </span>
+                </div>
+              );
+            })}
 
             <div className="frame-label">
               {frame.name || `frame_${String(i+1).padStart(5, '0')}.jpg`}
@@ -99,21 +116,21 @@ export default function FrameGallery({ frames, setFrames, sessionId, useBackend 
               <div className="frame-actions">
                 <button 
                   onClick={() => setSelectedFrame(frame)}
-                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white backdrop-blur-sm"
+                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white backdrop-blur-sm transition-colors"
                   title="View full size"
                 >
                   <Maximize2 size={16} />
                 </button>
                 <button 
                   onClick={() => handleDownloadSingle(frame)}
-                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white backdrop-blur-sm"
+                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white backdrop-blur-sm transition-colors"
                   title="Download frame"
                 >
                   <Download size={16} />
                 </button>
                 <button 
                   onClick={() => handleDetectObjects(frame, i)}
-                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white backdrop-blur-sm"
+                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white backdrop-blur-sm transition-colors"
                   title="Detect objects"
                   disabled={detecting || !!frame.detections}
                 >
@@ -121,7 +138,7 @@ export default function FrameGallery({ frames, setFrames, sessionId, useBackend 
                 </button>
                 <button 
                   onClick={() => handleDelete(i)}
-                  className="p-1.5 bg-red-500/20 hover:bg-red-500/40 rounded-lg text-red-200 backdrop-blur-sm"
+                  className="p-1.5 bg-red-500/20 hover:bg-red-500/40 rounded-lg text-red-200 backdrop-blur-sm transition-colors"
                   title="Remove frame"
                 >
                   <Trash2 size={16} />
@@ -142,7 +159,24 @@ export default function FrameGallery({ frames, setFrames, sessionId, useBackend 
             >
               <X size={20} />
             </button>
-            <img src={selectedFrame.url} className="max-w-full rounded-lg" alt="Full size frame" />
+            <div className="relative">
+              <img src={selectedFrame.url} className="max-w-full rounded-lg" alt="Full size frame" />
+              {/* Also show detections in modal if available */}
+              {selectedFrame.detections?.map((det, di) => (
+                <div 
+                  key={di}
+                  className="detection-badge"
+                  style={{
+                    left: `${(det.bbox[0] / selectedFrame.origW) * 100}%`,
+                    top: `${(det.bbox[1] / selectedFrame.origH) * 100}%`,
+                    width: `${(det.bbox[2] / selectedFrame.origW) * 100}%`,
+                    height: `${(det.bbox[3] / selectedFrame.origH) * 100}%`,
+                  }}
+                >
+                  <span className="detection-label">{det.class} {Math.round(det.score * 100)}%</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

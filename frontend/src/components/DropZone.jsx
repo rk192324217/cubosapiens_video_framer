@@ -137,7 +137,7 @@ export default function DropZone({ onVideoSelected }) {
 
       {/* Feature pills */}
       <div className="flex flex-wrap justify-center gap-3">
-        {['Canvas extraction', 'FFmpeg backend', 'ZIP download', 'GIF export', 'Object detection', 'Frame filters'].map(f => (
+        {['Canvas extraction', 'Manual Capture', 'ZIP download', 'GIF export', 'Object detection', 'Frame filters'].map(f => (
           <div
             key={f}
             className="glass-card px-4 py-2"
